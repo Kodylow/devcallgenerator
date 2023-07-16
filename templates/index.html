@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Flask App</title>
+</head>
+
+<body>
+    <h1>Welcome to the Flask App!</h1>
+    <input type="text" id="urlInput" placeholder="Enter URL here">
+    <button onclick="generateNotes()">Generate Dev Call Notes</button>
+    <div id="demo"></div>
+    <script>
+        function destructAuthHeader(auth_header) {
+            // need to parse out the invoice and token from the WWW-Authenticate header
+            // structured as 'L402 token=token, invoice=invoice'
+            const parts = auth_header.split(' ')
+            print(parts)
+            const token = parts[1].split('=')[1].replace(',', '')
+            const invoice = parts[2].split('=')[1]
+            return [token, invoice]
+        }
+        async function generateNotes() {
+            let url = "https://github.com/" + document.getElementById("urlInput").value;
+            let res = await fetch('/generate_notes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url: url })
+            })
+            if (res.status === 402) {
+                console.log("Here in 402")
+                const auth_header = res.headers.get('WWW-Authenticate');
+                const [token, invoice] = destructAuthHeader(auth_header);
+                console.log("token: " + token, "invoice: " + invoice)
+                await window.webln.enable();
+                const { preimage } = await window.webln.sendPayment(invoice)
+                res = await fetch('/generate_notes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'L402 ' + token + ':' + preimage
+                    },
+                    body: JSON.stringify({ url: url })
+                })
+            }
+            let data = await res.text();
+            console.log(data)
+            document.getElementById("demo").innerHTML = data;
+        }
+    </script>
+</body>
+
+</html>
